@@ -57,11 +57,11 @@
 
 (defn min-fig-x [fig]
   (->> (:shape fig)
-       (flatten)
+       (map first)
        (apply min)))
 
 (defn to-start-position [fig]
-  (assoc-in fig [:position] [(field-center) 0]))
+  (assoc fig :position [(field-center) 0]))
 
 (defn new-figure []
   (rand-nth (vals figures)))
@@ -73,31 +73,32 @@
                 (not-in-range? y 0 (dec (field-height)))
                 (some (fn [[row xs]]
                         (and (= y row)
-                             (xs x))) glass))) coords)))
+                             (xs x))) glass)))
+          coords)))
 
 (defn rotate [fig glass]
-  (let [fig' (update-in fig [:shape] #(mapv (fn [[x y]] [(- y) x]) %))]
+  (let [fig' (update fig :shape #(mapv (fn [[x y]] [(- y) x]) %))]
     (if (collide? fig' glass) fig fig')))
 
 (defn move-left [fig glass]
-  (let [fig' (update-in fig [:position] (fn [[x y]] [(dec x) y]))]
+  (let [fig' (update fig :position (fn [[x y]] [(dec x) y]))]
     (if (collide? fig' glass) fig fig')))
 
 (defn move-right [fig glass]
-  (let [fig' (update-in fig [:position] (fn [[x y]] [(inc x) y]))]
+  (let [fig' (update fig :position (fn [[x y]] [(inc x) y]))]
     (if (collide? fig' glass) fig fig')))
 
 (defn move-down* [fig]
-  (update-in fig [:position] (fn [[x y]] [x (inc y)])))
+  (update fig :position (fn [[x y]] [x (inc y)])))
 
 (defn move-down [fig glass]
   (let [fig' (move-down* fig)]
     (if (collide? fig' glass) fig fig')))
 
 (defn pick-next-figure [state]
-  (-> state
-      (assoc-in [:figure] (to-start-position (:next-figure state)))
-      (assoc-in [:next-figure] (new-figure))))
+  (assoc state
+         :figure (to-start-position (:next-figure state))
+         :next-figure (new-figure)))
 
 (defn persist-figure [state]
   (let [{:keys [figure glass]} state
@@ -107,14 +108,14 @@
                            (update-in m [y] #(conj % x))
                            (assoc m y #{x})))
                        glass coords)]
-    (assoc-in state [:glass] glass')))
+    (assoc state :glass glass')))
 
 (defn remove-filled-rows [state]
   (let [glass (:glass state)
         glass' (into (empty glass)
                      (remove (fn [[_ xs]]
                                (= (field-width) (count xs))) glass))]
-    (assoc-in state [:glass] glass')))
+    (assoc state :glass glass')))
 
 (defn squash-rows [state]
   (let [glass (:glass state)
@@ -123,7 +124,7 @@
                      (map (fn [new-y [_ xs]] [new-y xs])
                           (range (- h (count glass)) h)
                           glass))]
-    (assoc-in state [:glass] glass')))
+    (assoc state :glass glass')))
 
 (defn auto-move-down [state]
   (let [{:keys [figure glass]} state
@@ -136,7 +137,7 @@
           (squash-rows)
           (pick-next-figure))
       (-> state
-          (assoc-in [:figure] fig')))))
+          (assoc :figure fig')))))
 
 (defn draw-segment [x y color]
   (q/rect-mode :corner)
@@ -169,7 +170,7 @@
             (+ border-width x) (q/width))))
 
 (defn draw-next-figure [fig]
-  (let [{matrix :shape color :color} fig
+  (let [{shape :shape color :color} fig
         info-panel-mid-px (+ field-width-px (/ info-panel-width 2))
         box-x (- info-panel-mid-px
                  (/ (* segment-size (figure-width fig)) 2))
@@ -177,7 +178,7 @@
         x-inc (Math/abs (min-fig-x fig))
         coords (map (fn [[x-rel y-rel]]
                       [(* segment-size (+ x-rel x-inc))
-                       (* segment-size y-rel)]) matrix)]
+                       (* segment-size y-rel)]) shape)]
     (q/rect-mode :corner)
     (apply q/fill color)
     (q/stroke-weight 2)
@@ -226,9 +227,9 @@
       (if (<= tick 0)
         (-> state
             (auto-move-down)
-            (assoc-in [:tick] max-tick))
+            (assoc :tick max-tick))
         (-> state
-            (update-in [:tick] #(- % speed))))
+            (update :tick #(- % speed))))
       state)))
 
 (defn on-key-typed [state event]
@@ -236,14 +237,14 @@
         event-key (name (:key event))]
     (if run
       (case event-key
-        "w" (update-in state [:figure] rotate glass)
-        "a" (update-in state [:figure] move-left glass)
-        "d" (update-in state [:figure] move-right glass)
-        "s" (update-in state [:figure] move-down glass)
-        " " (assoc-in state [:run] false)
+        "w" (update state :figure rotate glass)
+        "a" (update state :figure move-left glass)
+        "d" (update state :figure move-right glass)
+        "s" (update state :figure move-down glass)
+        " " (assoc state :run false)
         state)
       (case event-key
-        " " (assoc-in state [:run] true)
+        " " (assoc state :run true)
         state))))
 
 (defn draw [state]
@@ -273,11 +274,11 @@
 
 (defn inc-speed []
   (applet/with-applet tetris
-    (swap! (q/state-atom) update-in [:speed] inc)))
+    (swap! (q/state-atom) update :speed inc)))
 
 (defn dec-speed []
   (applet/with-applet tetris
-    (swap! (q/state-atom) update-in [:speed] dec)))
+    (swap! (q/state-atom) update :speed dec)))
 
 (comment
   (get-state)
